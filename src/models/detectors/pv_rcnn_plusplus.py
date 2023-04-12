@@ -13,6 +13,7 @@ class PVRCNNPlusPlus(Detector3DTemplate):
         try:
             batch_dict = self.backbone_2d(batch_dict)
         except TypeError:
+            print(f"The 2d backbone doesn't exist. Trying to use the Encoder, CFE and Decoder modules.")
             batch_dict = self.encoder_2d_module(batch_dict)
             batch_dict = self.cfe(batch_dict)
             batch_dict = self.decoder_2d_module(batch_dict)
