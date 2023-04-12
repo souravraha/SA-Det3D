@@ -39,6 +39,83 @@ def bilinear_interpolate_torch(im, x, y):
     ans = torch.t((torch.t(Ia) * wa)) + torch.t(torch.t(Ib) * wb) + torch.t(torch.t(Ic) * wc) + torch.t(torch.t(Id) * wd)
     return ans
 
+def sample_points_with_roi(rois, points, sample_radius_with_roi, num_max_points_of_part=200000):
+    """
+    Args:
+        rois: (M, 7 + C)
+        points: (N, 3)
+        sample_radius_with_roi:
+        num_max_points_of_part:
+
+    Returns:
+        sampled_points: (N_out, 3)
+    """
+    if points.shape[0] < num_max_points_of_part:
+        distance = (points[:, None, :] - rois[None, :, 0:3]).norm(dim=-1)
+        min_dis, min_dis_roi_idx = distance.min(dim=-1)
+        roi_max_dim = (rois[min_dis_roi_idx, 3:6] / 2).norm(dim=-1)
+        point_mask = min_dis < roi_max_dim + sample_radius_with_roi
+    else:
+        start_idx = 0
+        point_mask_list = []
+        while start_idx < points.shape[0]:
+            distance = (points[start_idx:start_idx + num_max_points_of_part, None, :] - rois[None, :, 0:3]).norm(dim=-1)
+            min_dis, min_dis_roi_idx = distance.min(dim=-1)
+            roi_max_dim = (rois[min_dis_roi_idx, 3:6] / 2).norm(dim=-1)
+            cur_point_mask = min_dis < roi_max_dim + sample_radius_with_roi
+            point_mask_list.append(cur_point_mask)
+            start_idx += num_max_points_of_part
+        point_mask = torch.cat(point_mask_list, dim=0)
+
+    sampled_points = points[:1] if point_mask.sum() == 0 else points[point_mask, :]
+
+    return sampled_points, point_mask
+
+
+def sector_fps(points, num_sampled_points, num_sectors):
+    """
+    Args:
+        points: (N, 3)
+        num_sampled_points: int
+        num_sectors: int
+
+    Returns:
+        sampled_points: (N_out, 3)
+    """
+    sector_size = np.pi * 2 / num_sectors
+    point_angles = torch.atan2(points[:, 1], points[:, 0]) + np.pi
+    sector_idx = (point_angles / sector_size).floor().clamp(min=0, max=num_sectors)
+    xyz_points_list = []
+    xyz_batch_cnt = []
+    num_sampled_points_list = []
+    for k in range(num_sectors):
+        mask = (sector_idx == k)
+        cur_num_points = mask.sum().item()
+        if cur_num_points > 0:
+            xyz_points_list.append(points[mask])
+            xyz_batch_cnt.append(cur_num_points)
+            ratio = cur_num_points / points.shape[0]
+            num_sampled_points_list.append(
+                min(cur_num_points, math.ceil(ratio * num_sampled_points))
+            )
+
+    if len(xyz_batch_cnt) == 0:
+        xyz_points_list.append(points)
+        xyz_batch_cnt.append(len(points))
+        num_sampled_points_list.append(num_sampled_points)
+        print(f'Warning: empty sector points detected in SectorFPS: points.shape={points.shape}')
+
+    xyz = torch.cat(xyz_points_list, dim=0)
+    xyz_batch_cnt = torch.tensor(xyz_batch_cnt, device=points.device).int()
+    sampled_points_batch_cnt = torch.tensor(num_sampled_points_list, device=points.device).int()
+
+    sampled_pt_idxs = pointnet2_stack_utils.stack_farthest_point_sample(
+        xyz.contiguous(), xyz_batch_cnt, sampled_points_batch_cnt
+    ).long()
+
+    sampled_points = xyz[sampled_pt_idxs]
+
+    return sampled_points
 
 class DefVoxelSetAbstraction(nn.Module):
     def __init__(self, model_cfg, voxel_size, point_cloud_range, num_bev_features=None,
