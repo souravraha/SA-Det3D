@@ -102,7 +102,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
             xyz_batch_cnt.append(cur_num_points)
             ratio = cur_num_points / points.shape[0]
             num_sampled_points_list.append(
-                min(cur_num_points, math.ceil(ratio * num_sampled_points))
+                min(cur_num_points, int(ratio * num_sampled_points))
             )
 
     if len(xyz_batch_cnt) == 0:
@@ -121,7 +121,13 @@ def sector_fps(points, num_sampled_points, num_sectors):
 
     sampled_points = xyz[sampled_pt_idxs]
 
-    return sampled_points
+    def extend_with_minimal_repetitions(tensor, desired_length):
+        repetitions = max(1, desired_length // tensor.size(0))
+        repeated_tensor = tensor.repeat([repetitions] + [1] * (tensor.ndim - 1))
+        extra_tensor = tensor[:(desired_length - repeated_tensor.size(0))]
+        return torch.cat((repeated_tensor, extra_tensor))
+    
+    return extend_with_minimal_repetitions(sampled_points, num_sampled_points)
 
 
 class SAVoxelSetAbstraction(nn.Module):
@@ -233,8 +239,12 @@ class SAVoxelSetAbstraction(nn.Module):
 
     def get_sampled_points(self, batch_dict):
         """
-        Args:
-            batch_dict:
+        Uses:
+            batch_dict
+                'batch_size': int,
+                'points': [N, 5],
+                'voxel_coords': [M, 4],
+                'rois': [B, F, 7],
 
         Returns:
             keypoints: (N1 + N2 + ..., 4), where 4 indicates [bs_idx, x, y, z]
@@ -256,7 +266,7 @@ class SAVoxelSetAbstraction(nn.Module):
         keypoints_list = []
         for bs_idx in range(batch_size):
             bs_mask = (batch_indices == bs_idx)
-            sampled_points = src_points[bs_mask].unsqueeze(dim=0)  # (1, N, 3)
+            sampled_points = src_points[bs_mask].unsqueeze(dim=0)  # (1, N, 3) where N is the number of points with batch index == bs_idx
             if self.model_cfg.SAMPLE_METHOD == 'FPS':
                 cur_pt_idxs = pointnet2_stack_utils.farthest_point_sample(
                     sampled_points[:, :, 0:3].contiguous(), self.model_cfg.NUM_KEYPOINTS
