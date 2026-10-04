@@ -1,6 +1,13 @@
 ## Getting Started
- 
 
+Before anything else (fresh clone, or after touching `src/` or `configs/`):
+```
+./init.sh        # syncs src/ + configs/ into OpenPCDet/ so configs & models exist
+```
+
+> Available detectors include `PointPillar`, `SECOND`, `Point-RCNN`, `PV-RCNN`
+> (and their `_red`/`_dsa`/`_fsa` variants) plus the newer `PVRCNNPlusPlus`
+> (`configs/pv_rcnn_plusplus{,_dsa,_fsa}.yaml`). See the Model Zoo in the README.
 
 ### Test and evaluate the pretrained models
 * Go to tools:

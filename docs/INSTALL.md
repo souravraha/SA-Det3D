@@ -1,3 +1,40 @@
+## Repo layout & dev workflow
+
+This project has **two layers**:
+
+- **Super-repo** (this repo): holds the SA-Det3D code. The real source of
+  truth lives under `src/` (models, ops, tools) and `configs/` (run configs).
+- **Sub-repo** (`OpenPCDet`, a git submodule): the OpenPCDet framework.
+  We never author SA-Det3D code *here* — `init.sh` generates it from `src/`.
+
+### First clone
+```
+git clone --recursive <this-repo>
+cd <this-repo>
+./init.sh                       # copies src/ + configs/ into OpenPCDet/
+cd OpenPCDet
+pip install -r requirements.txt          # sub-repo requirements (copied by init.sh)
+<install spconv matching your CUDA>
+python setup.py develop           # builds the CUDA ops and installs pcdet
+cd ..
+```
+
+### After any change to `src/` or `configs/`
+```
+./init.sh                       # re-run; overwrites the generated copies in OpenPCDet/
+```
+After changing Python in `src/` (especially ops or the model registry), a
+re-run of `./init.sh` is enough for pure-Python files. If you changed CUDA
+C++ under `src/ops/`, also re-run `python setup.py develop` inside `OpenPCDet/`.
+
+### Never do this
+- Don't edit files inside `OpenPCDet/pcdet/models/...` in place and then bump
+  the submodule pointer. That breaks the source-of-truth rule and is the
+  root cause of the symlink / stale-pointer drift this repo previously had.
+- Don't commit the generated `OpenPCDet/` working tree back to the sub-repo.
+  The only tracked fact about `OpenPCDet/` is the **pointer** to a *pushed*
+  commit — never to unpushed local work.
+
 ## Installation
 
 ### Requirements
@@ -7,6 +44,10 @@ All the codes are tested in the following environment:
 * PyTorch 1.1 or higher (tested on PyTorch 1.3)
 * CUDA 9.0 or higher
 * `spconv v1.0` ([commit 8da6f96](https://github.com/traveller59/spconv/tree/8da6f967fb9a054d8870c3515b1b44eca2103634))
+
+> Note: `setup.py` currently looks for a `spconv` wheel matching your local
+> CUDA version (e.g. `spconv-cu117`). If your build expects a plain `spconv`,
+> adjust the `install_requires` line accordingly.
 
 
 ### Install `pcdet`

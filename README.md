@@ -91,6 +91,11 @@ Car moderate category are shown in the table below.
 | [PV-RCNN_DSA](configs/pvrcnn_dsa.yaml) | 84.71 | 10 | 64 | [PV-RCNN-DSA](https://drive.google.com/file/d/1-iLeNQ4XdbN7ncVBuHXd-e-L3pwpoAyB/view?usp=sharing) |
 | [PV-RCNN_FSA](configs/pvrcnn_fsa.yaml) | **84.95** | 10 | 64.3 | [PV-RCNN-FSA](https://drive.google.com/file/d/1hsy3nCO6Xk6cW3VP0SYLojhUpmqzYRab/view?usp=sharing) |
 
+**Note:** A `PVRCNNPlusPlus` detector is also provided, with three configurations
+(`configs/pv_rcnn_plusplus.yaml`, `pv_rcnn_plusplus_dsa.yaml`,
+`pv_rcnn_plusplus_fsa.yaml`) — see `configs/` for details. Benchmark numbers
+and checkpoints for this family are TBD.
+
 
 ## Usage
 a. Clone the repo:
